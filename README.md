@@ -1,16 +1,3 @@
----
-title: Healthcare FAQ Assistant
-emoji: 🏥
-colorFrom: blue
-colorTo: indigo
-sdk: streamlit
-sdk_version: 1.43.0
-app_file: app.py
-pinned: false
-license: mit
-short_description: RAG-powered medical Q&A grounded in NIH MedQuAD sources
----
-
 # 🏥 Healthcare FAQ Assistant
 
 [![Hugging Face Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/iamAkshat/MedQA-RAG-assistant)
@@ -243,3 +230,9 @@ This application is for **educational purposes only**. It provides information f
 
 ---
 
+## 👤 Author
+
+Built as a college-level RAG systems project demonstrating:
+- Production-grade Python architecture
+- Responsible AI design for sensitive domains
+- Quantitative evaluation using industry-standard frameworks
