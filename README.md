@@ -13,6 +13,15 @@ short_description: RAG-powered medical Q&A grounded in NIH MedQuAD sources
 
 # 🏥 Healthcare FAQ Assistant
 
+[![Hugging Face Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/iamAkshat/MedQA-RAG-assistant)
+[![Python](https://img.shields.io/badge/Python-3.13-blue)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-UI-red)](https://streamlit.io)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+**🚀 Live Demo:** [huggingface.co/spaces/iamAkshat/MedQA-RAG-assistant](https://huggingface.co/spaces/iamAkshat/MedQA-RAG-assistant)
+
+---
+
 A production-ready **Retrieval-Augmented Generation (RAG)** system for medical question answering, grounded in verified NIH sources. Built to address the critical problem of LLM hallucinations in healthcare — where incorrect information can cause real harm.
 
 ---
@@ -125,7 +134,7 @@ healthcare-rag-assistant/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/healthcare-rag-assistant.git
+git clone https://github.com/AkshatJ24/MedQA-RAG.git
 cd healthcare-rag-assistant
 
 # 2. Create and activate virtual environment
@@ -234,9 +243,3 @@ This application is for **educational purposes only**. It provides information f
 
 ---
 
-## 👤 Author
-
-Built as a college-level RAG systems project demonstrating:
-- Production-grade Python architecture
-- Responsible AI design for sensitive domains
-- Quantitative evaluation using industry-standard frameworks
