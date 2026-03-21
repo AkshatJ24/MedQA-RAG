@@ -1,3 +1,16 @@
+---
+title: Healthcare FAQ Assistant
+emoji: 🏥
+colorFrom: blue
+colorTo: indigo
+sdk: streamlit
+sdk_version: 1.43.0
+app_file: app.py
+pinned: false
+license: mit
+short_description: RAG-powered medical Q&A grounded in NIH MedQuAD sources
+---
+
 # 🏥 Healthcare FAQ Assistant
 
 [![Hugging Face Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/iamAkshat/MedQA-RAG-assistant)
