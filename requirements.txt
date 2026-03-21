@@ -1,0 +1,15 @@
+langchain
+langchain-core
+langchain-community
+langchain-huggingface
+langchain-openai
+langchain-text-splitters
+faiss-cpu
+sentence-transformers
+datasets
+pandas
+python-dotenv
+streamlit
+ragas
+openai
+google-generativeai

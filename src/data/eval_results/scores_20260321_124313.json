@@ -1,0 +1,16 @@
+{
+  "timestamp": "20260321_124313",
+  "eval_size": 50,
+  "metric": "faithfulness only",
+  "rag_scores": {
+    "faithfulness": 0.4937,
+    "answer_correctness": "N/A",
+    "context_precision": "N/A"
+  },
+  "baseline_scores": {
+    "faithfulness": 0.3916,
+    "answer_correctness": "N/A",
+    "context_precision": "N/A"
+  },
+  "faithfulness_delta": 0.1021
+}
