@@ -1,6 +1,6 @@
 """
 app.py — Streamlit UI for Healthcare FAQ Assistant
-Dark mode, fixed layout, Groq + local embeddings
+Dark mode · Chat interface · Eval results viewer
 """
 
 import streamlit as st
@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────
-# FORCE DARK MODE VIA CSS
+# DARK MODE CSS
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -59,8 +59,7 @@ st.markdown("""
     }
     .stButton > button:hover { background: #388bfd !important; }
 
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea {
+    .stTextInput > div > div > input {
         background: #161b22 !important;
         color: #e6edf3 !important;
         border: 1px solid #30363d !important;
@@ -86,8 +85,6 @@ st.markdown("""
     }
 
     [data-testid="stForm"] { background: transparent !important; border: none !important; }
-
-    .stProgress > div > div > div { background: #1f6feb !important; }
 
     .app-header {
         background: linear-gradient(135deg, #0d1f3c 0%, #1f3a6e 100%);
@@ -253,7 +250,7 @@ with st.sidebar:
     if st.button("💬  Chat Assistant", use_container_width=True):
         st.session_state.active_tab = "chat"
         st.rerun()
-    if st.button("📊  Evaluation Dashboard", use_container_width=True):
+    if st.button("📊  Evaluation Results", use_container_width=True):
         st.session_state.active_tab = "eval"
         st.rerun()
 
@@ -421,12 +418,12 @@ if st.session_state.active_tab == "chat":
 
 
 # ─────────────────────────────────────────────
-# TAB: EVALUATION DASHBOARD
+# TAB: EVALUATION RESULTS (view only — no run)
 # ─────────────────────────────────────────────
 elif st.session_state.active_tab == "eval":
 
-    st.markdown("### 📊 RAGAS Evaluation Dashboard")
-    st.markdown("<div style='color:#6e7681; font-size:0.88rem; margin-bottom:16px'>A/B test: RAG System vs Baseline LLM &middot; Judge: Llama 3.3 70B via Groq &middot; Embedder: all-MiniLM-L6-v2 (local)</div>", unsafe_allow_html=True)
+    st.markdown("### 📊 RAGAS Evaluation Results")
+    st.markdown("<div style='color:#6e7681; font-size:0.88rem; margin-bottom:16px'>A/B comparison: RAG System vs Baseline LLM &middot; 50 questions &middot; Faithfulness metric &middot; Judge: Llama 3.1 8B via Groq</div>", unsafe_allow_html=True)
     st.markdown("---")
 
     RESULTS_DIR = "data/eval_results"
@@ -437,87 +434,19 @@ elif st.session_state.active_tab == "eval":
             reverse=True,
         )
 
-    col_run, col_history = st.columns([1, 1], gap="large")
-
-    with col_run:
-        st.markdown("#### ▶️ Run New Evaluation")
-        sample_size = st.slider(
-            "Number of questions",
-            min_value=10, max_value=100, value=10, step=10,
-            help="Each question makes 2 Groq LLM calls. Start with 10 to verify everything works."
+    if not existing_results:
+        st.info("No evaluation results found. Run `python eval.py --sample-size 50` from the terminal to generate results.")
+    else:
+        selected_run = st.selectbox(
+            "Select evaluation run",
+            options=existing_results,
+            format_func=lambda x: x.replace("scores_", "").replace(".json", ""),
         )
-        qtypes_available = ["symptoms", "treatment", "prevention", "causes", "exams and tests"]
-        selected_qtypes  = st.multiselect(
-            "Question types to include",
-            options=qtypes_available,
-            default=qtypes_available,
-        )
-        run_button = st.button("▶️  Run Evaluation", use_container_width=True)
-
-        if run_button:
-            if not selected_qtypes:
-                st.error("Select at least one question type.")
-            else:
-                if not st.session_state.chain_loaded:
-                    with st.spinner("Loading chain..."):
-                        st.session_state.chain        = load_chain()
-                        st.session_state.chain_loaded = True
-
-                progress_bar = st.progress(0)
-                status_text  = st.empty()
-                try:
-                    from eval import (
-                        build_eval_dataset, run_rag_system,
-                        run_baseline_llm, score_with_ragas, save_results,
-                    )
-                    import eval as eval_module
-
-                    eval_module.EVAL_SAMPLE_SIZE  = sample_size
-                    eval_module.EVAL_QTYPES       = selected_qtypes
-                    eval_module.SAMPLES_PER_QTYPE = max(1, sample_size // len(selected_qtypes))
-
-                    status_text.text("Step 1/4 — Building evaluation dataset...")
-                    eval_df = build_eval_dataset()
-                    progress_bar.progress(25)
-
-                    status_text.text("Step 2/4 — Running RAG system...")
-                    eval_df = run_rag_system(eval_df)
-                    progress_bar.progress(50)
-
-                    status_text.text("Step 3/4 — Running baseline LLM...")
-                    eval_df = run_baseline_llm(eval_df)
-                    progress_bar.progress(75)
-
-                    status_text.text("Step 4/4 — Scoring with RAGAS...")
-                    rag_scores      = score_with_ragas(eval_df, answer_col="rag_answer")
-                    baseline_scores = score_with_ragas(eval_df, answer_col="baseline_answer")
-                    save_results(eval_df, rag_scores, baseline_scores)
-                    progress_bar.progress(100)
-                    status_text.success("✅ Evaluation complete!")
-
-                    st.session_state["eval_rag"]     = rag_scores
-                    st.session_state["eval_baseline"] = baseline_scores
-                    st.session_state["eval_df"]       = eval_df
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Evaluation failed: {e}")
-
-    with col_history:
-        st.markdown("#### 🕑 Past Runs")
-        if not existing_results:
-            st.info("No past evaluations yet. Run one to see results here.")
-        else:
-            selected_run = st.selectbox(
-                "Load a past run",
-                options=existing_results,
-                format_func=lambda x: x.replace("scores_", "").replace(".json", ""),
-            )
-            if selected_run:
-                with open(os.path.join(RESULTS_DIR, selected_run)) as f:
-                    past = json.load(f)
-                st.session_state["eval_rag"]     = past["rag_scores"]
-                st.session_state["eval_baseline"] = past["baseline_scores"]
-                st.success("Loaded: " + selected_run.replace("scores_", "").replace(".json", ""))
+        if selected_run:
+            with open(os.path.join(RESULTS_DIR, selected_run)) as f:
+                past = json.load(f)
+            st.session_state["eval_rag"]     = past["rag_scores"]
+            st.session_state["eval_baseline"] = past["baseline_scores"]
 
     if "eval_rag" in st.session_state:
         st.markdown("---")
@@ -567,18 +496,27 @@ elif st.session_state.active_tab == "eval":
             </div>
             """, unsafe_allow_html=True)
 
-        if "eval_df" in st.session_state:
+        # Detailed CSV table if available
+        csv_results = []
+        if os.path.exists(RESULTS_DIR):
+            csv_results = sorted(
+                [f for f in os.listdir(RESULTS_DIR) if f.startswith("eval_results_") and f.endswith(".csv")],
+                reverse=True,
+            )
+
+        if csv_results:
             st.markdown("---")
             st.markdown("#### 📋 Detailed Results")
-            display_df = st.session_state["eval_df"][[
-                "question", "qtype", "ground_truth",
-                "rag_answer", "baseline_answer", "rag_fallback"
-            ]].copy()
-            display_df.columns = [
-                "Question", "QType", "Ground Truth (NIH)",
-                "RAG Answer", "Baseline Answer", "Fallback?"
-            ]
+
+            # Load matching CSV for selected run
+            selected_ts = selected_run.replace("scores_", "").replace(".json", "") if existing_results else ""
+            matching_csv = f"eval_results_{selected_ts}.csv"
+
+            csv_to_load = matching_csv if matching_csv in csv_results else csv_results[0]
+            display_df = pd.read_csv(os.path.join(RESULTS_DIR, csv_to_load))
+
             st.dataframe(display_df, use_container_width=True, height=380)
+
             csv = display_df.to_csv(index=False).encode("utf-8")
             st.download_button(
                 label="⬇️  Download Results CSV",
