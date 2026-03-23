@@ -13,7 +13,7 @@ from datetime import datetime
 # PAGE CONFIG — must be first Streamlit call
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="Healthcare FAQ Assistant",
+    page_title="MedQA v2.0 : Healthcare FAQ Assistant",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -44,6 +44,7 @@ st.markdown("""
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] strong { color: #e6edf3 !important; }
     [data-testid="stSidebar"] hr { border-color: #21262d !important; }
+    [data-testid="stSidebar"] .stButton > button * { color: white !important; }
 
     p, span, div, label, li { color: #e6edf3; }
     h1, h2, h3, h4 { color: #e6edf3 !important; }
@@ -243,7 +244,8 @@ def load_chain():
 # SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🏥 MedFAQ RAG")
+    st.markdown("## 🏥 MedQA")
+    st.markdown("<div style='font-size: 0.85rem; color: #8b949e; margin-top: -15px; margin-bottom: 15px;'><i>Powered by RAG</i></div>", unsafe_allow_html=True)
     st.markdown("---")
 
     st.markdown("**Navigation**")
@@ -286,6 +288,28 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("---")
+    st.markdown("**Update Changelog**")
+    st.markdown("""
+    <div style='font-size:0.75rem; line-height:1.6; color:#8b949e; margin-bottom:10px;'>
+        <b>v2.0</b><br>
+        1. Added <code>rewrite_query()</code> — LLM-based medical spell correction<br>
+        2. Added three-state domain detection: reliable / insufficient / out_of_domain<br>
+        &nbsp;&nbsp; 2.1 Added <code>OUT_OF_DOMAIN_RESPONSE</code> and <code>OUT_OF_DOMAIN_THRESHOLD = 0.35</code><br>
+        3. Fixed Sidebar color mismatch.<br>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Automatically fetch the last modified time of this specific file
+    try:
+        mod_time = os.path.getmtime(os.path.abspath(__file__))
+        date_str = datetime.fromtimestamp(mod_time).strftime("%d/%m/%Y")
+    except Exception:
+        # Fallback if OS read fails
+        date_str = datetime.now().strftime("%d/%m/%Y")
+        
+    st.markdown(f"<div style='font-size:0.7rem; color:#6e7681; font-style:italic;'>last updated on {date_str}</div>", unsafe_allow_html=True)
+
 
 # ─────────────────────────────────────────────
 # HEADER
@@ -294,7 +318,7 @@ st.markdown("""
 <div class="app-header">
     <div style="font-size:2.2rem">🏥</div>
     <div>
-        <h1>Healthcare FAQ Assistant</h1>
+        <h1>MedQA v2.0 : A Healthcare FAQ Assistant</h1>
         <p>RAG &middot; NIH MedQuAD &middot; Llama 3.3 70B via Groq &middot; FAISS &middot; RAGAS Evaluation</p>
     </div>
 </div>
@@ -333,9 +357,26 @@ if st.session_state.active_tab == "chat":
                 st.markdown("<div class='chat-label'>You</div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='chat-user'>{turn['question']}</div>", unsafe_allow_html=True)
                 if turn.get("fallback"):
+                    fallback_type = turn.get("fallback_type", "insufficient")
+                    if fallback_type == "out_of_domain":
+                        icon  = "🚫"
+                        title = "Out of Domain"
+                        color = "#30363d"
+                        border_color = "#6e7681"
+                    else:
+                        icon  = "⚠️"
+                        title = "Insufficient Medical Context"
+                        color = "#2a1f0f"
+                        border_color = "#d29922"
+
                     st.markdown(f"""
-                    <div class='chat-label'>Assistant ⚠️</div>
-                    <div class='fallback-box'>⚠️ <b>No verified context found.</b><br>{turn['answer']}</div>
+                    <div class='chat-label'>Assistant {icon}</div>
+                    <div style='background:{color}; border:1px solid {border_color};
+                         border-left:4px solid {border_color}; border-radius:10px;
+                         padding:12px 16px; margin:6px 60px 6px 0; font-size:0.9rem;
+                         color:#e6edf3;'>
+                        {icon} <b>{title}</b><br>{turn['answer']}
+                    </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("<div class='chat-label'>Assistant</div>", unsafe_allow_html=True)
@@ -368,6 +409,7 @@ if st.session_state.active_tab == "chat":
                     "answer":   result["answer"],
                     "fallback": result["fallback"],
                     "sources":  result["sources"],
+                    "fallback_type": result.get("fallback_type")
                 })
                 st.session_state.last_sources = result["sources"]
                 st.rerun()
@@ -380,6 +422,7 @@ if st.session_state.active_tab == "chat":
                 "answer":   result["answer"],
                 "fallback": result["fallback"],
                 "sources":  result["sources"],
+                "fallback_type": result.get("fallback_type")
             })
             st.session_state.last_sources = result["sources"]
             st.rerun()

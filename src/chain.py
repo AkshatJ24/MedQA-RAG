@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
@@ -35,6 +35,17 @@ FALLBACK_RESPONSE = (
     "I do not have enough verified information to answer this question. "
     "Please consult a qualified healthcare professional for accurate medical advice."
 )
+
+OUT_OF_DOMAIN_RESPONSE = (
+    "This question is beyond my current scope/domain. I am a specialized medical "
+    "assistant trained strictly on the NIH MedQuAD dataset and cannot answer "
+    "non-healthcare queries."
+)
+
+# Similarity score below this = likely out of domain entirely (not just missing data)
+# Medical questions with insufficient data: score 0.45–0.69 (close but not enough)
+# Completely out of domain (finance, sports, etc.): score 0.00–0.30
+OUT_OF_DOMAIN_THRESHOLD = 0.35
 
 # Maps keywords in the user query → MedQuAD qtype
 # Used to auto-filter the retriever for better precision
@@ -104,34 +115,45 @@ def detect_qtype(query: str) -> str | None:
 # Checks if retrieved docs are relevant enough
 # before passing them to Gemini
 # ─────────────────────────────────────────────
-def is_context_reliable(vectorstore, query: str) -> tuple[bool, list]:
+def is_context_reliable(vectorstore, query: str) -> tuple[str, list]:
     """
-    Runs a similarity search with scores.
-    Returns (True, docs) if top result clears the threshold.
-    Returns (False, []) if context is too weak → fallback should trigger.
+    Runs a similarity search and classifies the query into 3 states:
+
+    Returns ("reliable", docs)   — score ≥ 0.70 → answer the question
+    Returns ("insufficient", []) — score 0.35–0.69 → medical but missing data
+                                   → use FALLBACK_RESPONSE
+    Returns ("out_of_domain", [])— score < 0.35 → not medical at all
+                                   → use OUT_OF_DOMAIN_RESPONSE
+
+    Score bands (empirically calibrated):
+        0.70–1.00 → strong medical match (diabetes, asthma, cancer etc.)
+        0.35–0.69 → weak match (rare disease, edge case, missing from dataset)
+        0.00–0.34 → no match (stocks, sports, general knowledge)
 
     Note on FAISS scores:
-        FAISS returns L2 distance by default (lower = more similar).
-        With normalize_embeddings=True in ingestion.py, the range is [0, 2].
-        We convert to cosine similarity: cos_sim = 1 - (score / 2)
-        and check against SIMILARITY_THRESHOLD.
+        FAISS L2 distance with normalize_embeddings=True → range [0, 2]
+        cos_sim = 1 - (l2_distance / 2)
     """
     results = vectorstore.similarity_search_with_score(query, k=TOP_K)
 
     if not results:
-        return False, []
+        return "out_of_domain", []
 
-    top_score = results[0][1]  # L2 distance of best match
+    top_score = results[0][1]
     cos_sim   = 1 - (top_score / 2)
 
     log.info(f"Top similarity score: {cos_sim:.4f} (threshold: {SIMILARITY_THRESHOLD})")
 
-    if cos_sim < SIMILARITY_THRESHOLD:
-        log.warning("Context below similarity threshold — triggering fallback.")
-        return False, []
+    if cos_sim >= SIMILARITY_THRESHOLD:
+        docs = [doc for doc, _ in results]
+        return "reliable", docs
 
-    docs = [doc for doc, _ in results]
-    return True, docs
+    if cos_sim >= OUT_OF_DOMAIN_THRESHOLD:
+        log.warning(f"Score {cos_sim:.4f} — medical query, insufficient context.")
+        return "insufficient", []
+
+    log.warning(f"Score {cos_sim:.4f} — out of domain query detected.")
+    return "out_of_domain", []
 
 
 # ─────────────────────────────────────────────
@@ -153,6 +175,50 @@ def get_llm():
 # ─────────────────────────────────────────────
 # MAIN CHAIN CLASS
 # ─────────────────────────────────────────────
+# LLM-BASED QUERY REWRITER
+# Uses Groq LLM to fix medical typos intelligently.
+# Far superior to dictionary spell checkers because:
+#   - Understands medical terminology and drug names
+#   - Won't "correct" Metformin → Reformation
+#   - Won't "correct" Ibuprofen → Improper
+#   - Handles complex disease names correctly
+# ─────────────────────────────────────────────
+def rewrite_query(query: str, llm) -> str:
+    """
+    Uses the LLM to fix typos and clarify medical queries before retrieval.
+    Returns the corrected query — or the original if already correct.
+
+    Examples:
+        "Asthama"          → "Asthma"
+        "diabetis symptons"→ "diabetes symptoms"
+        "Metformin" (correct drug name) → "Metformin" (unchanged)
+    """
+    system_prompt = (
+        "You are a medical query corrector. Fix any spelling mistakes in the "
+        "following user question, especially medical terms, drug names, and "
+        "disease names. Return ONLY the corrected question with no explanation. "
+        "If it is already correct, return it as is. Do not answer the question."
+    )
+
+    try:
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=query)
+        ])
+        corrected = response.content.strip()
+
+        if corrected.lower() != query.lower():
+            log.info(f"Query rewritten: '{query}' → '{corrected}'")
+
+        return corrected
+
+    except Exception as e:
+        # If LLM call fails for any reason, fall back to original query
+        log.warning(f"Query rewrite failed: {e} — using original query")
+        return query
+
+
+# ─────────────────────────────────────────────
 class HealthcareQAChain:
     def __init__(self):
         log.info("Initializing HealthcareQAChain...")
@@ -172,14 +238,31 @@ class HealthcareQAChain:
             "fallback": bool          # True if zero-guessing policy triggered
         }
         """
-        # 1. Check if context is reliable enough
-        reliable, docs = is_context_reliable(self.vectorstore, query)
+        # 0. LLM query rewrite — fix medical typos before embedding
+        #    Uses the same Groq LLM with a tiny prompt — no extra API needed
+        #    e.g. "Asthama symptons" → "Asthma symptoms"
+        query = rewrite_query(query, self.llm)
 
-        if not reliable:
+        # 1. Check context reliability — returns one of three states:
+        #    "reliable"     → proceed to generation
+        #    "insufficient" → medical query but not in our dataset
+        #    "out_of_domain"→ not a medical query at all
+        status, docs = is_context_reliable(self.vectorstore, query)
+
+        if status == "out_of_domain":
+            return {
+                "answer":   OUT_OF_DOMAIN_RESPONSE,
+                "sources":  [],
+                "fallback": True,
+                "fallback_type": "out_of_domain",
+            }
+
+        if status == "insufficient":
             return {
                 "answer":   FALLBACK_RESPONSE,
                 "sources":  [],
                 "fallback": True,
+                "fallback_type": "insufficient",
             }
 
         # 2. Detect qtype and get appropriate retriever
@@ -247,9 +330,10 @@ class HealthcareQAChain:
         ]
 
         return {
-            "answer":   answer,
-            "sources":  sources,
-            "fallback": False,
+            "answer":        answer,
+            "sources":       sources,
+            "fallback":      False,
+            "fallback_type": None,
         }
 
     def reset_memory(self):
