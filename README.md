@@ -1,5 +1,5 @@
 ---
-title: Healthcare FAQ Assistant
+title: MedQA v2.0
 emoji: 🏥
 colorFrom: blue
 colorTo: indigo
