@@ -33,8 +33,8 @@ User Query
     ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    SAFETY GATE                              │
-│  FAISS similarity search → score < 0.70 → Fallback         │
-│                           → score ≥ 0.70 → Continue        │
+│  FAISS similarity search → score < 0.70 → Fallback          │
+│                           → score ≥ 0.70 → Continue         │
 └───────────────────────────┬─────────────────────────────────┘
                             │
                             ▼
@@ -42,16 +42,16 @@ User Query
 │                  RAG PIPELINE                               │
 │                                                             │
 │  1. Detect qtype from query keywords                        │
-│     (symptoms / treatment / prevention / ...)              │
+│     (symptoms / treatment / prevention / ...)               │
 │                                                             │
 │  2. FAISS filtered retrieval                                │
-│     → Top-5 chunks from MedQuAD index                      │
+│     → Top-5 chunks from MedQuAD index                       │
 │                                                             │
-│  3. GPT-OSS 20B via Groq                                   │
-│     → Strict system prompt: answer ONLY from context       │
+│  3. GPT-OSS 20B via Groq                                    │
+│     → Strict system prompt: answer ONLY from context        │
 │                                                             │
 │  4. Source attribution                                      │
-│     → Returns NIH source metadata with every answer        │
+│     → Returns NIH source metadata with every answer         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
