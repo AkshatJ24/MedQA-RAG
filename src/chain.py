@@ -19,6 +19,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
 from ingestion import get_vectorstore, get_filtered_retriever
+from config import get_groq_api_key
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -27,7 +28,6 @@ log = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-GROQ_API_KEY        = os.getenv("GROQ_API_KEY")
 SIMILARITY_THRESHOLD = 0.70   # below this score → trigger fallback
 TOP_K               = 5       # number of chunks to retrieve
 
@@ -160,15 +160,16 @@ def is_context_reliable(vectorstore, query: str) -> tuple[str, list]:
 # LLM SETUP
 # ─────────────────────────────────────────────
 def get_llm():
-    if not GROQ_API_KEY:
-        raise ValueError("GROQ_API_KEY not found. Add it to your .env file.")
+    groq_api_key = get_groq_api_key()
 
     return ChatOpenAI(
-        model="llama-3.3-70b-versatile",  # best free Groq model
-        api_key=GROQ_API_KEY,
+        model="openai/gpt-oss-20b",
+        api_key=groq_api_key,
         base_url="https://api.groq.com/openai/v1",
-        temperature=0.2,
-        max_tokens=512,
+        temperature=1,
+        max_completion_tokens=2048,
+        top_p=1,
+        model_kwargs={"reasoning_effort": "medium"},
     )
 
 

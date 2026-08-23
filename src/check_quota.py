@@ -1,15 +1,21 @@
 import requests, os
 from dotenv import load_dotenv
+from config import get_groq_api_key
 
 load_dotenv('../.env')
 
 r = requests.post(
     'https://api.groq.com/openai/v1/chat/completions',
-    headers={'Authorization': f'Bearer {os.getenv("GROQ_API_KEY")}'},
+    headers={'Authorization': f'Bearer {get_groq_api_key()}'},
     json={
-        'model': 'llama-3.1-8b-instant',
+        'model': 'openai/gpt-oss-20b',
         'messages': [{'role': 'user', 'content': 'hi'}],
-        'max_tokens': 1
+        'max_completion_tokens': 1,
+        'temperature': 1,
+        'top_p': 1,
+        'reasoning_effort': 'medium',
+        'stream': False,
+        'stop': None
     }
 )
 

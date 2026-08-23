@@ -28,6 +28,7 @@ from langchain_core.messages import HumanMessage
 
 # Our RAG chain
 from chain import HealthcareQAChain
+from config import get_groq_api_key
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -37,7 +38,6 @@ log = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-GROQ_API_KEY      = os.getenv("GROQ_API_KEY")
 EVAL_SAMPLE_SIZE  = 10
 RANDOM_SEED       = 42
 RESULTS_DIR       = "data/eval_results"
@@ -88,19 +88,21 @@ def build_eval_dataset() -> pd.DataFrame:
 def run_rag_system(eval_df: pd.DataFrame) -> pd.DataFrame:
     """
     Runs each question through the full RAG pipeline.
-    Uses llama-3.1-8b-instant to save daily token quota.
+    Uses openai/gpt-oss-20b via Groq.
     """
     log.info("Running RAG system on eval dataset...")
     chain = HealthcareQAChain()
+    groq_api_key = get_groq_api_key()
 
-    # Use lighter model for eval to preserve daily token quota.
-    # The Streamlit app (chain.py) still uses llama-3.3-70b-versatile.
+    # Override LLM for eval run.
     chain.llm = ChatOpenAI(
-        model="llama-3.1-8b-instant",
-        api_key=GROQ_API_KEY,
+        model="openai/gpt-oss-20b",
+        api_key=groq_api_key,
         base_url="https://api.groq.com/openai/v1",
-        temperature=0.2,
-        max_tokens=512,
+        temperature=1,
+        max_completion_tokens=2048,
+        top_p=1,
+        model_kwargs={"reasoning_effort": "medium"},
     )
 
     rag_answers  = []
@@ -151,12 +153,15 @@ def run_baseline_llm(eval_df: pd.DataFrame) -> pd.DataFrame:
     This is the control group — shows raw LLM performance without RAG.
     """
     log.info("Running baseline LLM (no retrieval) on eval dataset...")
+    groq_api_key = get_groq_api_key()
     llm = ChatOpenAI(
-        model="llama-3.1-8b-instant",
-        api_key=GROQ_API_KEY,
+        model="openai/gpt-oss-20b",
+        api_key=groq_api_key,
         base_url="https://api.groq.com/openai/v1",
-        temperature=0.2,
-        max_tokens=512,
+        temperature=1,
+        max_completion_tokens=2048,
+        top_p=1,
+        model_kwargs={"reasoning_effort": "medium"},
     )
 
     baseline_answers = []
@@ -181,12 +186,13 @@ def run_baseline_llm(eval_df: pd.DataFrame) -> pd.DataFrame:
 # the LLM, no embeddings, no async issues.
 # ─────────────────────────────────────────────
 def get_ragas_judge():
+    groq_api_key = get_groq_api_key()
     groq_client = GroqClient(
-        api_key=GROQ_API_KEY,
+        api_key=groq_api_key,
         base_url="https://api.groq.com/openai/v1",
     )
     judge_llm = llm_factory(
-        model="llama-3.1-8b-instant",
+        model="openai/gpt-oss-20b",
         client=groq_client,
     )
     run_cfg = RunConfig(

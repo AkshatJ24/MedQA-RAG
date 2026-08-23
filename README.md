@@ -60,7 +60,7 @@ User Query
 │  2. FAISS filtered retrieval                                │
 │     → Top-5 chunks from MedQuAD index                      │
 │                                                             │
-│  3. Llama 3.3 70B via Groq                                  │
+│  3. GPT-OSS 20B via Groq                                   │
 │     → Strict system prompt: answer ONLY from context       │
 │                                                             │
 │  4. Source attribution                                      │
@@ -96,7 +96,7 @@ User Query
 |---|---|
 | Language | Python 3.13 |
 | Orchestration | LangChain (LCEL) |
-| LLM | Llama 3.3 70B via Groq API |
+| LLM | GPT-OSS 20B (openai/gpt-oss-20b) via Groq API |
 | Embeddings | all-MiniLM-L6-v2 (local, HuggingFace) |
 | Vector Database | FAISS (local, CPU) |
 | Dataset | MedQuAD — NIH Medical Q&A (16,400 rows) |

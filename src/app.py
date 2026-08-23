@@ -278,7 +278,7 @@ with st.sidebar:
         <b style='color:#8b949e'>Dataset</b><br>
         MedQuAD &middot; NIH (16.4k rows)<br><br>
         <b style='color:#8b949e'>LLM</b><br>
-        Llama 3.3 70B via Groq<br><br>
+        GPT-OSS 20B via Groq<br><br>
         <b style='color:#8b949e'>Embeddings</b><br>
         all-MiniLM-L6-v2 (local)<br><br>
         <b style='color:#8b949e'>Vector DB</b><br>
@@ -319,7 +319,7 @@ st.markdown("""
     <div style="font-size:2.2rem">🏥</div>
     <div>
         <h1>MedQA v2.0 : A Healthcare FAQ Assistant</h1>
-        <p>RAG &middot; NIH MedQuAD &middot; Llama 3.3 70B via Groq &middot; FAISS &middot; RAGAS Evaluation</p>
+        <p>RAG &middot; NIH MedQuAD &middot; GPT-OSS 20B via Groq &middot; FAISS &middot; RAGAS Evaluation</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -466,7 +466,7 @@ if st.session_state.active_tab == "chat":
 elif st.session_state.active_tab == "eval":
 
     st.markdown("### 📊 RAGAS Evaluation Results")
-    st.markdown("<div style='color:#6e7681; font-size:0.88rem; margin-bottom:16px'>A/B comparison: RAG System vs Baseline LLM &middot; 50 questions &middot; Faithfulness metric &middot; Judge: Llama 3.1 8B via Groq</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color:#6e7681; font-size:0.88rem; margin-bottom:16px'>A/B comparison: RAG System vs Baseline LLM &middot; 50 questions &middot; Faithfulness metric &middot; Judge: GPT-OSS 20B via Groq</div>", unsafe_allow_html=True)
     st.markdown("---")
 
     RESULTS_DIR = "data/eval_results"
